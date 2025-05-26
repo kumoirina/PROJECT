@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>波义耳定律教学实验</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+    }
+    .output {
+      font-size: 18px;
+      margin-top: 20px;
+    }
+    .display-boxes {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .box {
+      padding: 15px;
+      background: #eef;
+      border-radius: 8px;
+      text-align: center;
+      width: 28%;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .slider-section {
+      margin-top: 20px;
+    }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    input[type=range] {
+      width: 100%;
+    }
+    canvas {
+      margin-top: 30px;
+    }
+    .animation {
+      margin-top: 30px;
+      text-align: center;
+    }
+    .animation img {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    #simulationCanvas {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+      margin: 20px auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔬 波义耳定律教学实验模拟</h2>
+
+    <div class="output">
+      <p>📊 以下数据来自 Nuffield Foundation 的实际实验，展示在恒定温度下，压强与体积的反比关系：</p>
+    </div>
+
+    <div class="display-boxes">
+      <div class="box" id="volumeDisplay">体积：7.34 cm³</div>
+      <div class="box" id="pressureDisplay">压强：100330 Pa</div>
+      <div class="box" id="temperatureDisplay">温度：300 K</div>
+    </div>
+
+    <div class="slider-section">
+      <label for="volumeSlider">🔧 拖动以改变体积:</label>
+      <input type="range" id="volumeSlider" min="0" max="8" step="1">
+    </div>
+
+    <div class="slider-section">
+      <label for="temperatureSlider">🌡️ 拖动以改变温度:</label>
+      <input type="range" id="temperatureSlider" min="280" max="320" step="1">
+    </div>
+
+    <canvas id="simulationCanvas" width="400" height="300"></canvas>
+
+    <div class="animation">
+      <h3>🎞️ 理想气体状态方程动画解释</h3>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/9/99/Kinetic_Theory_of_Gases.gif" alt="理想气体动画">
+      <p>理想气体分子在体积变小时单位面积碰撞频率增加，造成压强升高。</p>
+    </div>
+  </div>
+
+  <script>
+    const volumeData = [7.34, 7.24, 7.14, 7.04, 6.89, 6.84, 6.79, 6.69, 6.64];
+    const pressureData = [100330, 102200, 103930, 105270, 107400, 108470, 109400, 111140, 112200];
+    const temperatureDefault = 300;
+
+    const volumeDisplay = document.getElementById('volumeDisplay');
+    const pressureDisplay = document.getElementById('pressureDisplay');
+    const temperatureDisplay = document.getElementById('temperatureDisplay');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const temperatureSlider = document.getElementById('temperatureSlider');
+    const canvas = document.getElementById('simulationCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 气体分子模拟
+    class Molecule {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.dx = (Math.random() - 0.5) * 4;
+        this.dy = (Math.random() - 0.5) * 4;
+        this.radius = 3;
+      }
+
+      update(pistonHeight) {
+        this.x += this.dx;
+        this.y += this.dy;
+
+        // 碰撞检测 - 修改为从上往下压的边界
+        if (this.x < 100 + this.radius) {
+          this.x = 100 + this.radius;
+          this.dx *= -1;
+        }
+        if (this.x > 300 - this.radius) {
+          this.x = 300 - this.radius;
+          this.dx *= -1;
+        }
+        if (this.y < pistonHeight + this.radius) { // 上边界改为活塞位置
+          this.y = pistonHeight + this.radius;
+          this.dy *= -1;
+        }
+        if (this.y > 250 - this.radius) { // 下边界固定
+          this.y = 250 - this.radius;
+          this.dy *= -1;
+        }
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#3498db';
+        ctx.fill();
+      }
+    }
+
+    // 创建分子 - 调整初始位置范围
+    const molecules = Array(50).fill().map(() => 
+      new Molecule(
+        Math.random() * 200 + 100,
+        Math.random() * 150 + 100  // 调整初始y坐标范围
+      )
+    );
+
+    function drawContainer(pistonHeight) {
+      // 绘制气缸
+      ctx.strokeStyle = '#2c3e50';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(100, 50);
+      ctx.lineTo(100, 250);
+      ctx.lineTo(300, 250);
+      ctx.lineTo(300, 50);
+      ctx.stroke();
+
+      // 绘制活塞 - 从上方往下压
+      ctx.fillStyle = '#95a5a6';
+      ctx.fillRect(95, pistonHeight, 210, 10);
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const volumeIndex = parseInt(volumeSlider.value);
+      const pistonHeight = 50 + (volumeIndex * 20); // 修改活塞位置计算方式
+      
+      drawContainer(pistonHeight);
+      
+      molecules.forEach(molecule => {
+        molecule.update(pistonHeight);
+        molecule.draw();
+      });
+      
+      requestAnimationFrame(animate);
+    }
+
+    function updateDisplays(volumeIndex, temperature) {
+      const basePressure = pressureData[volumeIndex];
+      const tempFactor = temperature / temperatureDefault;
+      const adjustedPressure = Math.round(basePressure * tempFactor);
+      volumeDisplay.innerText = `体积：${volumeData[volumeIndex]} cm³`;
+      pressureDisplay.innerText = `压强：${adjustedPressure} Pa`;
+      temperatureDisplay.innerText = `温度：${temperature} K`;
+    }
+
+    function handleInput() {
+      const volumeIndex = parseInt(volumeSlider.value);
+      const temperature = parseInt(temperatureSlider.value);
+      updateDisplays(volumeIndex, temperature);
+    }
+
+    // Start animation
+    animate();
+
+    volumeSlider.addEventListener('input', handleInput);
+    temperatureSlider.addEventListener('input', handleInput);
+
+    updateDisplays(0, temperatureDefault);
+  </script>
+</body>
+</html>

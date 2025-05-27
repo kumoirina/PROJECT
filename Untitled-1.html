@@ -94,7 +94,7 @@
 
     <div class="slider-section">
       <label for="temperatureSlider">🌡️ 拖动以改变温度:</label>
-      <input type="range" id="temperatureSlider" min="280" max="320" step="1">
+      <input type="range" id="temperatureSlider" min="200" max="400" step="1">
     </div>
 
     <canvas id="simulationCanvas" width="400" height="300"></canvas>
@@ -124,10 +124,13 @@
       constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.dx = (Math.random() - 0.5) * 4;
-        this.dy = (Math.random() - 0.5) * 4;
+        // 降低基础速度，让温度变化效果更明显
+        const baseSpeed = 1.5;
+        const angle = Math.random() * Math.PI * 2;
+        this.dx = Math.cos(angle) * baseSpeed;
+        this.dy = Math.sin(angle) * baseSpeed;
         this.radius = 3;
-        this.mass = 1; // 质量，用于动量计算
+        this.mass = 1;
       }
 
       // 计算与另一个分子的碰撞
@@ -137,33 +140,27 @@
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < this.radius + other.radius) {
-          // 计算碰撞法线
-          const nx = dx / distance;
-          const ny = dy / distance;
-
-          // 计算相对速度
-          const vx = this.dx - other.dx;
-          const vy = this.dy - other.dy;
-          const relativeVelocity = vx * nx + vy * ny;
-
-          // 如果分子正在远离，则不处理碰撞
-          if (relativeVelocity > 0) return;
-
-          // 计算冲量 (完全弹性碰撞)
-          const impulse = 2 * relativeVelocity / (this.mass + other.mass);
-
-          // 更新速度
-          this.dx -= impulse * other.mass * nx;
-          this.dy -= impulse * other.mass * ny;
-          other.dx += impulse * this.mass * nx;
-          other.dy += impulse * this.mass * ny;
-
-          // 防止重叠
-          const overlap = (this.radius + other.radius - distance) / 2;
-          this.x -= overlap * nx;
-          this.y -= overlap * ny;
-          other.x += overlap * nx;
-          other.y += overlap * ny;
+            // 完全弹性碰撞的简化实现
+            const angle = Math.atan2(dy, dx);
+            
+            // 交换速度分量
+            const speed1 = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
+            const speed2 = Math.sqrt(other.dx * other.dx + other.dy * other.dy);
+            
+            const direction1 = Math.atan2(this.dy, this.dx);
+            const direction2 = Math.atan2(other.dy, other.dx);
+            
+            this.dx = speed2 * Math.cos(direction2);
+            this.dy = speed2 * Math.sin(direction2);
+            other.dx = speed1 * Math.cos(direction1);
+            other.dy = speed1 * Math.sin(direction1);
+            
+            // 防止重叠
+            const overlap = (this.radius + other.radius - distance) / 2;
+            this.x -= Math.cos(angle) * overlap;
+            this.y -= Math.sin(angle) * overlap;
+            other.x += Math.cos(angle) * overlap;
+            other.y += Math.sin(angle) * overlap;
         }
       }
 
@@ -172,22 +169,21 @@
         const nextX = this.x + this.dx;
         const nextY = this.y + this.dy;
 
-        // 左右墙壁碰撞
+        // 完全弹性碰撞，移除能量损耗系数
         if (nextX < 100 + this.radius) {
           this.x = 100 + this.radius;
-          this.dx = Math.abs(this.dx) * 0.99; // 轻微能量损失
+          this.dx = Math.abs(this.dx); // 移除 0.99 系数
         } else if (nextX > 300 - this.radius) {
           this.x = 300 - this.radius;
-          this.dx = -Math.abs(this.dx) * 0.99;
+          this.dx = -Math.abs(this.dx);
         }
 
-        // 上下墙壁碰撞
         if (nextY < pistonHeight + this.radius) {
           this.y = pistonHeight + this.radius;
-          this.dy = Math.abs(this.dy) * 0.99;
+          this.dy = Math.abs(this.dy);
         } else if (nextY > 250 - this.radius) {
           this.y = 250 - this.radius;
-          this.dy = -Math.abs(this.dy) * 0.99;
+          this.dy = -Math.abs(this.dy);
         }
       }
 
@@ -202,13 +198,13 @@
         // 处理与墙壁的碰撞
         this.handleWallCollision(pistonHeight);
 
-        // 更新位置
+        // 更新位置，移除空气阻力
         this.x += this.dx;
         this.y += this.dy;
-
-        // 模拟微小的空气阻力
-        this.dx *= 0.999;
-        this.dy *= 0.999;
+        
+        // 移除原有的空气阻力模拟
+        // this.dx *= 0.999;
+        // this.dy *= 0.999;
       }
 
       draw() {
@@ -216,6 +212,17 @@
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = '#3498db';
         ctx.fill();
+      }
+
+      // 添加速度缩放方法
+      scaleVelocity(factor) {
+        // 扩大速度变化范围，但保持物理合理性
+        const currentSpeed = Math.sqrt(this.dx * this.dx + this.dy * this.dy);
+        const newSpeed = Math.min(Math.max(currentSpeed * factor, 0.5), 8);
+        const speedRatio = newSpeed / currentSpeed;
+        
+        this.dx *= speedRatio;
+        this.dy *= speedRatio;
       }
     }
 
@@ -247,7 +254,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       const volumeIndex = parseInt(volumeSlider.value);
-      const pistonHeight = 50 + (volumeIndex * 20);
+      const pistonHeight = 50 + (volumeIndex * 25); // 增大活塞移动范围
       
       drawContainer(pistonHeight);
       
@@ -272,6 +279,15 @@
     function handleInput() {
       const volumeIndex = parseInt(volumeSlider.value);
       const temperature = parseInt(temperatureSlider.value);
+      const previousTemp = parseInt(temperatureDisplay.textContent.split('：')[1]);
+      
+      // 增强温度对速度的影响
+      const velocityScale = Math.pow(temperature / previousTemp, 1);
+      
+      molecules.forEach(molecule => {
+        molecule.scaleVelocity(velocityScale);
+      });
+      
       updateDisplays(volumeIndex, temperature);
     }
 
